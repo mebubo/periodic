@@ -16,21 +16,23 @@ object App {
     def print[F[_]](s: String)(implicit S: Sync[F]): F[Unit] = S.delay(println(s))
     def read[F[_]](implicit S: Sync[F]): F[String] = S.delay(readLine)
 
-    def printingAndCounting[F[_] : Sync : Timer](implicit E: MonadError[F, Throwable]): F[Unit] = for {
+    def doingAndCounting[F[_] : Sync : Timer, A](f: Int => F[A])(implicit E: MonadError[F, Throwable]): F[Unit] = for {
         ref <- Ref.of[F, Int](0)
         p = for {
             i <- ref.get
-            _ <- if (i == 5) E.raiseError(new Exception("fail")) else print(s"hello $i")
+            _ <- f(i)
             _ <- ref.modify(x => (x + 1, x))
         } yield ()
         _ <- Scheduler.periodic(duration, p)
     } yield ()
 
-    def printing[F[_] : Sync : Timer]: F[Unit] = Scheduler.periodic(duration, print("hello"))
+    def doing[F[_] : Sync : Timer, A](fa: F[A]): F[Unit] = Scheduler.periodic(duration, fa).map(_ => ())
 
-    def app[F[_]: Sync : Timer](implicit C: Concurrent[F]): F[Unit] = {
+    def app[F[_]: Sync : Timer](implicit C: Concurrent[F], E: MonadError[F, Throwable]): F[Unit] = {
+        val printOrError: Int => F[Unit] = i => if (i == 5) E.raiseError(new Exception("fail")) else print(s"hello $i")
         for {
-            token <- C.start(printingAndCounting)
+            // token <- C.start(doing(print("hello")))
+            token <- C.start(doingAndCounting(printOrError))
             _ <- read
             _ <- token.cancel
             _ <- print("stop")
