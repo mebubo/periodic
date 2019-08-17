@@ -15,9 +15,8 @@ object App {
     def app[F[_]: Sync : Timer](implicit C: Concurrent[F]): F[Unit] = {
         val duration = FiniteDuration(1, SECONDS)
         val periodic = Scheduler.periodic[F, Unit](duration, print("hello"))
-        val fiber = C.start(periodic)
         for {
-            token <- fiber
+            token <- C.start(periodic)
             s <- read
             _ <- token.cancel
             _ <- print("stop")
