@@ -7,16 +7,29 @@ import cats.effect.Timer
 import cats.effect.Sync
 import cats.implicits._
 import cats.effect.Concurrent
+import cats.effect.concurrent.Ref
 
 object App {
+    val duration = FiniteDuration(1, SECONDS)
+
     def print[F[_]](s: String)(implicit S: Sync[F]): F[Unit] = S.delay(println(s))
     def read[F[_]](implicit S: Sync[F]): F[String] = S.delay(readLine)
 
+    def printingAndCounting[F[_] : Sync : Timer]: F[Unit] = for {
+        ref <- Ref.of[F, Int](0)
+        p = for {
+            i <- ref.get
+            _ <- print(s"hello $i")
+            _ <- ref.modify(x => (x + 1, x))
+        } yield ()
+        _ <- Scheduler.periodic(duration, p)
+    } yield ()
+
+    def printing[F[_] : Sync : Timer]: F[Unit] = Scheduler.periodic(duration, print("hello"))
+
     def app[F[_]: Sync : Timer](implicit C: Concurrent[F]): F[Unit] = {
-        val duration = FiniteDuration(1, SECONDS)
-        val periodic = Scheduler.periodic(duration, print("hello"))
         for {
-            token <- C.start(periodic)
+            token <- C.start(printingAndCounting)
             _ <- read
             _ <- token.cancel
             _ <- print("stop")
