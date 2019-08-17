@@ -8,6 +8,7 @@ import cats.effect.Sync
 import cats.implicits._
 import cats.effect.Concurrent
 import cats.effect.concurrent.Ref
+import cats.MonadError
 
 object App {
     val duration = FiniteDuration(1, SECONDS)
@@ -15,11 +16,11 @@ object App {
     def print[F[_]](s: String)(implicit S: Sync[F]): F[Unit] = S.delay(println(s))
     def read[F[_]](implicit S: Sync[F]): F[String] = S.delay(readLine)
 
-    def printingAndCounting[F[_] : Sync : Timer]: F[Unit] = for {
+    def printingAndCounting[F[_] : Sync : Timer](implicit E: MonadError[F, Throwable]): F[Unit] = for {
         ref <- Ref.of[F, Int](0)
         p = for {
             i <- ref.get
-            _ <- print(s"hello $i")
+            _ <- if (i == 5) E.raiseError(new Exception("fail")) else print(s"hello $i")
             _ <- ref.modify(x => (x + 1, x))
         } yield ()
         _ <- Scheduler.periodic(duration, p)
