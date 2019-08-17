@@ -14,13 +14,12 @@ object App {
 
     def app[F[_]: Sync : Timer](implicit C: Concurrent[F]): F[Unit] = {
         val duration = FiniteDuration(1, SECONDS)
-        val periodic = Scheduler.periodic[F, Unit](duration, print("hello"))
+        val periodic = Scheduler.periodic(duration, print("hello"))
         for {
             token <- C.start(periodic)
-            s <- read
+            _ <- read
             _ <- token.cancel
             _ <- print("stop")
-
         } yield ()
     }
 }
