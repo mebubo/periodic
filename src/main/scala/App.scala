@@ -13,8 +13,8 @@ import cats.MonadError
 object App {
     val duration = FiniteDuration(1, SECONDS)
 
-    def print[F[_]](s: String)(implicit S: Sync[F]): F[Unit] = S.delay(println(s))
-    def read[F[_]](implicit S: Sync[F]): F[String] = S.delay(readLine)
+    def print[F[_] : Sync](s: String): F[Unit] = Sync[F].delay(println(s))
+    def read[F[_] : Sync]: F[String] = Sync[F].delay(readLine)
 
     def doingAndCounting[F[_] : Sync : Timer, A](f: Int => F[A])(implicit E: MonadError[F, Throwable]): F[Unit] = for {
         ref <- Ref.of[F, Int](0)
@@ -28,11 +28,11 @@ object App {
 
     def doing[F[_] : Sync : Timer, A](fa: F[A]): F[Unit] = Scheduler.periodic(duration, fa).map(_ => ())
 
-    def app[F[_]: Sync : Timer](implicit C: Concurrent[F], E: MonadError[F, Throwable]): F[Unit] = {
+    def app[F[_]: Sync : Timer : Concurrent](implicit E: MonadError[F, Throwable]): F[Unit] = {
         val printOrError: Int => F[Unit] = i => if (i == 5) E.raiseError(new Exception("fail")) else print(s"hello $i")
         for {
-            // token <- C.start(doing(print("hello")))
-            token <- C.start(doingAndCounting(printOrError))
+            // token <- Concurrent[F].start(doing(print("hello")))
+            token <- Concurrent[F].start(doingAndCounting(printOrError))
             _ <- read
             _ <- token.cancel
             _ <- print("stop")
