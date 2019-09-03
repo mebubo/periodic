@@ -1,3 +1,5 @@
+package f
+
 import cats.effect.IO
 import cats.effect.Timer
 import cats.effect.IOApp

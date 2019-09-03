@@ -1,3 +1,5 @@
+package f
+
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.duration.MILLISECONDS
 import scala.concurrent.duration.SECONDS
@@ -28,8 +30,8 @@ object App {
 
     def doing[F[_] : Sync : Timer, A](fa: F[A]): F[Unit] = Scheduler.periodic(duration, fa).map(_ => ())
 
-    def app[F[_]: Sync : Timer : Concurrent](implicit E: MonadError[F, Throwable]): F[Unit] = {
-        val printOrError: Int => F[Unit] = i => if (i == 5) E.raiseError(new Exception("fail")) else print(s"hello $i")
+    def app[F[_]: Sync : Timer : Concurrent : MonadError[*[_], Throwable]]: F[Unit] = {
+        val printOrError: Int => F[Unit] = i => if (i == 5) MonadError[F, Throwable].raiseError(new Exception("fail")) else print(s"hello $i")
         for {
             // token <- Concurrent[F].start(doing(print("hello")))
             token <- Concurrent[F].start(doingAndCounting(printOrError))
